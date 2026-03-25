@@ -57,10 +57,24 @@ async function processar() {
             body: formData
         });
 
-        const data = await response.json();
+        if (!response.ok) {
+            throw new Error("Erro ao processar");
+        }
+
+        // 🔥 RECEBE O ARQUIVO
+        const blob = await response.blob();
+
+        // 🔥 CRIA DOWNLOAD
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "SPED_PROCESSADO.txt";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
 
         status.className = "status sucesso mostrar";
-        status.innerText = data.mensagem;
+        status.innerText = "Download iniciado!";
 
     } catch (error) {
         status.className = "status erro mostrar";

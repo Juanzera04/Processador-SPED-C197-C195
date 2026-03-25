@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import shutil
 import os
 from service import processar_sped
+from fastapi.responses import FileResponse
 
 app = FastAPI()
 
@@ -25,7 +26,6 @@ def home():
     return {"status": "ok"}
 
 
-# 🚀 processamento
 @app.post("/processar/")
 async def processar(sped: UploadFile = File(...), excel: UploadFile = File(...)):
 
@@ -33,14 +33,17 @@ async def processar(sped: UploadFile = File(...), excel: UploadFile = File(...))
     caminho_excel = os.path.join(UPLOAD_DIR, excel.filename)
     caminho_saida = os.path.join(UPLOAD_DIR, "resultado.txt")
 
-    # salvar arquivos enviados
     with open(caminho_sped, "wb") as f:
         shutil.copyfileobj(sped.file, f)
 
     with open(caminho_excel, "wb") as f:
         shutil.copyfileobj(excel.file, f)
 
-    # processar
     processar_sped(caminho_sped, caminho_excel, caminho_saida)
 
-    return {"mensagem": "Processado com sucesso!"}
+    # 🔥 RETORNAR ARQUIVO
+    return FileResponse(
+        caminho_saida,
+        media_type="text/plain",
+        filename="SPED_PROCESSADO.txt"
+    )
