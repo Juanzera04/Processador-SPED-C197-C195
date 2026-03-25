@@ -66,6 +66,29 @@ def processar_sped(arquivo_sped, arquivo_excel, saida):
             dentro_bloco_c = True
 
         if linha.startswith("|C990|"):
+            # 🔥 FINALIZA A ÚLTIMA NOTA ANTES DE SAIR DO BLOCO C
+            if bloco and nota_atual:
+                if nota_atual in mapa_notas:
+                    grupos = defaultdict(list)
+
+                    for c in mapa_notas[nota_atual]:
+                        codigo = extrair_codigo_c197(c)
+                        grupos[codigo].append(c)
+
+                    for codigo, lista in grupos.items():
+                        if codigo in MAPA_C195:
+                            cod, desc = MAPA_C195[codigo]
+
+                            bloco.append(f"|C195|{cod}|{desc}|\n")
+                            qtd_c195 += 1
+                            codigos_gerais.add(cod)
+
+                            bloco.extend(lista)
+                            qtd_c197 += len(lista)
+
+                resultado.extend(bloco)
+                bloco = []
+
             dentro_bloco_c = False
 
         if linha.startswith("|C100|") and dentro_bloco_c:
