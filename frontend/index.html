@@ -7,55 +7,47 @@
 </head>
 <body>
 
-<h1 class="titulo-principal">📄 Processador SPED Fiscal</h1>
+<h1 class="titulo-principal">Processador SPED Fiscal</h1>
 
-<!-- TELA INICIAL -->
 <div id="entrada">
     <button onclick="ativarSistema()" class="botao-entrar">
-        🔐 Entrar
+        Entrar
     </button>
-
-    <div id="desafio" style="display:none;">
-        <p>Resolva para continuar:</p>
-        <strong>5 + 5 = ?</strong><br><br>
-        <input type="number" id="resposta">
-        <button onclick="validar()">Validar</button>
-    </div>
 </div>
 
-<!-- SISTEMA -->
 <div class="container" id="sistema" style="display:none;">
-
     <div class="box">
-        <h2>📄 Inserir C195 e C197</h2>
+
+        <h2>Inserir C195 e C197</h2>
 
         <label class="file-label">
-            📊 Anexar a planilha
+            Anexar a planilha
             <input type="file" id="excel">
         </label>
 
         <div id="excel-info" class="arquivo-info"></div>
 
         <label class="file-label">
-            📁 Anexar o TXT
+            Anexar o TXT
             <input type="file" id="sped">
         </label>
 
         <div id="sped-info" class="arquivo-info"></div>
 
         <button onclick="processar()" id="btn-processar">
-            ⚙️ Processar
+            Processar
         </button>
 
         <div id="status" class="status"></div>
-    </div>
 
+    </div>
 </div>
 
 <div class="rodape">
-    Processador SPED Fiscal © 2026
+    Processador SPED | Juan Rodrigues © 2026
 </div>
 
 <script src="script.js"></script>
+
 </body>
 </html>

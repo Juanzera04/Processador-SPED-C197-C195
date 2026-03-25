@@ -1,26 +1,21 @@
 const BACKEND = "https://SEU-BACKEND.onrender.com";
 
-// mostrar desafio
-function ativarSistema() {
-    document.getElementById("desafio").style.display = "block";
-}
+async function ativarSistema() {
 
-// validar conta e acordar backend
-async function validar() {
-    const resposta = document.getElementById("resposta").value;
+    const botao = document.querySelector(".botao-entrar");
+    botao.innerHTML = '<span class="loader"></span> Conectando...';
+    botao.disabled = true;
 
-    if (resposta != 10) {
-        alert("Resposta incorreta!");
-        return;
-    }
-
-    // 🔥 chama backend (acorda ele)
     try {
         await fetch(BACKEND);
-    } catch (e) {}
 
-    document.getElementById("entrada").style.display = "none";
-    document.getElementById("sistema").style.display = "flex";
+        document.getElementById("entrada").style.display = "none";
+        document.getElementById("sistema").style.display = "flex";
+
+    } catch (error) {
+        botao.innerHTML = "Erro ao conectar. Tentar novamente";
+        botao.disabled = false;
+    }
 }
 
 // mostrar nome dos arquivos
@@ -38,7 +33,6 @@ document.getElementById("sped").addEventListener("change", (e) => {
     box.classList.add("mostrar");
 });
 
-// processar
 async function processar() {
 
     const sped = document.getElementById("sped").files[0];

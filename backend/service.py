@@ -1,6 +1,4 @@
 import pandas as pd
-import tkinter as tk
-from tkinter import filedialog
 from collections import defaultdict
 
 # =========================
@@ -33,184 +31,134 @@ MAPA_0460 = {
 }
 
 # =========================
-# SELEÇÃO DE ARQUIVOS
+# FUNÇÃO PRINCIPAL
 # =========================
-root = tk.Tk()
-root.withdraw()
+def processar_sped(arquivo_sped, arquivo_excel, saida):
 
-arquivo_sped = filedialog.askopenfilename(title="Selecione o SPED", filetypes=[("TXT", "*.txt")])
-arquivo_excel = filedialog.askopenfilename(title="Selecione a planilha", filetypes=[("Excel", "*.xlsx")])
+    df = pd.read_excel(arquivo_excel, dtype=str)
+    mapa_notas = defaultdict(list)
 
-saida = arquivo_sped.replace(".txt", "_novo.txt")
+    for _, row in df.iterrows():
+        nota = normalizar_nota(row.iloc[12])
+        linha = row.iloc[10]
 
-# =========================
-# LEITURA DA PLANILHA
-# =========================
-df = pd.read_excel(arquivo_excel, dtype=str)
+        if nota and isinstance(linha, str) and linha.startswith("|C197|"):
+            linha = linha.strip()
+            if not linha.endswith("|"):
+                linha += "|"
+            mapa_notas[nota].append(linha + "\n")
 
-mapa_notas = defaultdict(list)
+    with open(arquivo_sped, "r", encoding="latin1") as f:
+        linhas = f.readlines()
 
-for _, row in df.iterrows():
-    nota = normalizar_nota(row.iloc[12])
-    linha = row.iloc[10]
+    resultado = []
+    bloco = []
+    nota_atual = None
+    dentro_bloco_c = False
 
-    if nota and isinstance(linha, str) and linha.startswith("|C197|"):
-        linha = linha.strip()
-        if not linha.endswith("|"):
-            linha += "|"
-        mapa_notas[nota].append(linha + "\n")
+    codigos_gerais = set()
+    qtd_c195 = 0
+    qtd_c197 = 0
 
-# =========================
-# LEITURA DO SPED
-# =========================
-with open(arquivo_sped, "r", encoding="latin1") as f:
-    linhas = f.readlines()
+    for linha in linhas:
 
-resultado = []
-bloco = []
-nota_atual = None
-dentro_bloco_c = False
+        if linha.startswith("|C001|"):
+            dentro_bloco_c = True
 
-codigos_gerais = set()
-qtd_c195 = 0
-qtd_c197 = 0
+        if linha.startswith("|C990|"):
+            dentro_bloco_c = False
 
-# =========================
-# PROCESSAMENTO
-# =========================
-for linha in linhas:
+        if linha.startswith("|C100|") and dentro_bloco_c:
+            if bloco and nota_atual:
+                if nota_atual in mapa_notas:
+                    grupos = defaultdict(list)
 
-    if linha.startswith("|C001|"):
-        dentro_bloco_c = True
+                    for c in mapa_notas[nota_atual]:
+                        codigo = extrair_codigo_c197(c)
+                        grupos[codigo].append(c)
 
-    if linha.startswith("|C990|"):
-        dentro_bloco_c = False
+                    for codigo, lista in grupos.items():
+                        if codigo in MAPA_C195:
+                            cod, desc = MAPA_C195[codigo]
 
-    if linha.startswith("|C100|") and dentro_bloco_c:
-        # processa bloco anterior
-        if bloco and nota_atual:
-            if nota_atual in mapa_notas:
-                grupos = defaultdict(list)
+                            bloco.append(f"|C195|{cod}|{desc}|\n")
+                            qtd_c195 += 1
+                            codigos_gerais.add(cod)
 
-                for c in mapa_notas[nota_atual]:
-                    codigo = extrair_codigo_c197(c)
-                    grupos[codigo].append(c)
+                            bloco.extend(lista)
+                            qtd_c197 += len(lista)
 
-                for codigo, lista in grupos.items():
-                    if codigo in MAPA_C195:
-                        cod, desc = MAPA_C195[codigo]
+                resultado.extend(bloco)
+                bloco = []
 
-                        bloco.append(f"|C195|{cod}|{desc}|\n")
-                        qtd_c195 += 1
-                        codigos_gerais.add(cod)
+            nota_atual = extrair_nota(linha)
 
-                        bloco.extend(lista)
-                        qtd_c197 += len(lista)
+        if not linha.endswith("\n"):
+            linha += "\n"
 
-            resultado.extend(bloco)
-            bloco = []
+        bloco.append(linha)
 
-        nota_atual = extrair_nota(linha)
+    if bloco:
+        resultado.extend(bloco)
 
-    if not linha.endswith("\n"):
-        linha += "\n"
+    pos_0990 = next(i for i, l in enumerate(resultado) if l.startswith("|0990|"))
 
-    bloco.append(linha)
+    linhas_0460 = [MAPA_0460[c] for c in sorted(codigos_gerais)]
+    qtd_0460 = len(linhas_0460)
 
-# =========================
-# FINAL (SEM PROCESSAR FORA DO BLOCO C)
-# =========================
-if bloco:
-    resultado.extend(bloco)
+    resultado = resultado[:pos_0990] + linhas_0460 + resultado[pos_0990:]
 
-# =========================
-# INSERIR 0460
-# =========================
-pos_0990 = next(i for i, l in enumerate(resultado) if l.startswith("|0990|"))
+    for i, l in enumerate(resultado):
+        if l.startswith("|0990|"):
+            partes = l.split("|")
+            partes[2] = str(int(partes[2]) + qtd_0460)
+            resultado[i] = "|".join(partes)
 
-linhas_0460 = [MAPA_0460[c] for c in sorted(codigos_gerais)]
-qtd_0460 = len(linhas_0460)
+    qtd_linhas_c = sum(1 for l in resultado if l.startswith("|C"))
 
-resultado = resultado[:pos_0990] + linhas_0460 + resultado[pos_0990:]
+    for i, l in enumerate(resultado):
+        if l.startswith("|C990|"):
+            resultado[i] = f"|C990|{qtd_linhas_c}|\n"
 
-# =========================
-# AJUSTAR 0990
-# =========================
-for i, l in enumerate(resultado):
-    if l.startswith("|0990|"):
-        partes = l.split("|")
-        partes[2] = str(int(partes[2]) + qtd_0460)
-        resultado[i] = "|".join(partes)
+    pos_0220 = next(i for i, l in enumerate(resultado) if l.startswith("|9900|0220|"))
 
-# =========================
-# TOTALIZADORES
-# =========================
+    if qtd_0460 > 0:
+        resultado.insert(pos_0220 + 1, f"|9900|0460|{qtd_0460}|\n")
 
-# C990
-qtd_linhas_c = sum(1 for l in resultado if l.startswith("|C"))
+    pos_9900_c990 = next(i for i, l in enumerate(resultado) if l.startswith("|9900|C990|"))
 
-for i, l in enumerate(resultado):
-    if l.startswith("|C990|"):
-        resultado[i] = f"|C990|{qtd_linhas_c}|\n"
+    if qtd_c195 > 0:
+        resultado.insert(pos_9900_c990, f"|9900|C195|{qtd_c195}|\n")
+        pos_9900_c990 += 1
 
-# posição 0220
-pos_0220 = next(i for i, l in enumerate(resultado) if l.startswith("|9900|0220|"))
+    if qtd_c197 > 0:
+        resultado.insert(pos_9900_c990, f"|9900|C197|{qtd_c197}|\n")
 
-# inserir 0460
-if qtd_0460 > 0:
-    resultado.insert(pos_0220 + 1, f"|9900|0460|{qtd_0460}|\n")
+    total_linhas = len(resultado)
 
-# posição C990
-pos_9900_c990 = next(i for i, l in enumerate(resultado) if l.startswith("|9900|C990|"))
+    for i, l in enumerate(resultado):
+        if l.startswith("|9999|"):
+            resultado[i] = f"|9999|{total_linhas}|\n"
 
-# inserir C195
-if qtd_c195 > 0:
-    resultado.insert(pos_9900_c990, f"|9900|C195|{qtd_c195}|\n")
-    pos_9900_c990 += 1
+    incremento = 0
 
-# inserir C197
-if qtd_c197 > 0:
-    resultado.insert(pos_9900_c990, f"|9900|C197|{qtd_c197}|\n")
+    if qtd_c195 > 0:
+        incremento += 1
+    if qtd_c197 > 0:
+        incremento += 1
+    if qtd_0460 > 0:
+        incremento += 1
 
-# =========================
-# 9999
-# =========================
-total_linhas = len(resultado)
+    for i, l in enumerate(resultado):
+        if l.startswith("|9900|9900|"):
+            partes = l.split("|")
+            partes[3] = str(int(partes[3]) + incremento)
+            resultado[i] = "|".join(partes)
 
-for i, l in enumerate(resultado):
-    if l.startswith("|9999|"):
-        resultado[i] = f"|9999|{total_linhas}|\n"
+        if l.startswith("|9990|"):
+            partes = l.split("|")
+            partes[2] = str(int(partes[2]) + incremento)
+            resultado[i] = "|".join(partes)
 
-# =========================
-# AJUSTE 9900|9900 e 9990
-# =========================
-incremento = 0
-
-if qtd_c195 > 0:
-    incremento += 1
-
-if qtd_c197 > 0:
-    incremento += 1
-
-if qtd_0460 > 0:
-    incremento += 1
-
-for i, l in enumerate(resultado):
-    if l.startswith("|9900|9900|"):
-        partes = l.split("|")
-        partes[3] = str(int(partes[3]) + incremento)
-        resultado[i] = "|".join(partes)
-
-    if l.startswith("|9990|"):
-        partes = l.split("|")
-        partes[2] = str(int(partes[2]) + incremento)
-        resultado[i] = "|".join(partes)
-
-# =========================
-# SALVAR
-# =========================
-with open(saida, "w", encoding="latin1") as f:
-    f.writelines(resultado)
-
-print("\n✅ SPED VALIDADO E AJUSTADO COM SUCESSO")
-print(f"📁 Arquivo salvo em: {saida}")
+    with open(saida, "w", encoding="latin1") as f:
+        f.writelines(resultado)
