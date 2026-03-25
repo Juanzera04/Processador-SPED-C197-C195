@@ -1,4 +1,4 @@
-const BACKEND = "https://processador-sped-c197-c195.onrender.com/";
+const BACKEND = "https://processador-sped-c197-c195.onrender.com";
 
 async function ativarSistema() {
 
